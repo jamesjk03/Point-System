@@ -129,6 +129,63 @@ public:
 		updateDrawableObjectPosition(); // update drawableObject's position
 		window->draw(drawableObject); // draw to passed in window
 	}
+
+	friend ostream& operator<<(ostream& os, const point& p2); // for outputting vector
+};
+
+ostream& operator<<(ostream& os, const point& p2) {
+	os << "(" << p2.position.x << ", " << p2.position.y << ")"; // output vector as (x, y)
+	return os;
+}
+
+#pragma endregion
+
+#pragma region bezier_class
+
+class bezier {
+public:
+	vector<int> bezierControlPoints; // index meanings, 0 - first endpoint, 1 - control point, 2 - second endpoint
+	vector<vector2> bezierPoints; // for final path to be calculated
+
+	float dt = 0.01;
+
+	bezier(int p1, int p2, int p3) {
+		bezierControlPoints.push_back(p1);
+		bezierControlPoints.push_back(p2);
+		bezierControlPoints.push_back(p3);
+	}
+
+	void step(sf::RenderWindow* window, point* p1, point* p2, point* p3) {
+		bezierPoints.clear();
+
+		calculatePoints(p1, p2, p3);
+
+		draw(window);
+	}
+
+	void calculatePoints(point* p1, point* p2, point* p3) {
+		float t = 0;
+
+		for (int i = 0; i <= 1 / dt; i++) {
+			vector2 firstMidpoint = lerp(p1->position, p2->position, t);
+			vector2 secondMidpoint = lerp(p2->position, p3->position, t);
+			vector2 finalPoint = lerp(firstMidpoint, secondMidpoint, t);
+
+			bezierPoints.push_back(finalPoint);
+
+			t += dt;
+		}
+	}
+
+	void draw(sf::RenderWindow* window) {
+		for (int i = 0; i < size(bezierPoints) - 1; i++) {
+			sf::Vertex l[] = {
+				sf::Vertex(sf::Vector2f(bezierPoints.at(i).x, bezierPoints.at(i).y)),
+				sf::Vertex(sf::Vector2f(bezierPoints.at(i + 1).x, bezierPoints.at(i + 1).y))
+			};
+			window->draw(l, 2, sf::Lines);
+		}
+	}
 };
 
 #pragma endregion
@@ -138,6 +195,7 @@ public:
 class pointManager {
 public:
 	vector<point> points; // stores current points
+	vector<bezier> beziers;
 
 	int clickRadius = 20;
 
@@ -152,8 +210,14 @@ public:
 
 		bool leftMouseButtonDown = sf::Mouse::isButtonPressed(sf::Mouse::Left); // get lmb input
 		bool leftShiftDown = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift); // get left shift input
+		bool bKeyDown = sf::Keyboard::isKeyPressed(sf::Keyboard::B);
+		bool bKeyDownPreviousFrame = false;
 
 		// click actions
+
+		if (bKeyDown && !bKeyDownPreviousFrame) {
+			beziers.push_back(bezier(size(points)-1, size(points)-2, size(points)-3));
+		}
 
 		// left shift + lmb to create new point at mouse position
 		if (leftShiftDown && leftMouseButtonDown && !leftMouseDownLastFrame) {
@@ -203,10 +267,11 @@ public:
 		}
 		// checks if neither last or current frame lmb
 		else if (!leftMouseDownLastFrame && !leftMouseButtonDown) {
-			int currentDragIndex; // resets drag index (not necessary but probably a good idea
+			int currentDragIndex; // resets drag index (not necessary but probably a good idea)
 		}
 
 		leftMouseDownLastFrame = leftMouseButtonDown; // stores state of current frame in last frame before ticking over
+		bKeyDownPreviousFrame = bKeyDown;
 
 		// draw window
 		drawPoints(window);
@@ -216,6 +281,13 @@ public:
 		// iterate vector
 		for (int i = 0; i < size(points); i++) {
 			points.at(i).draw(window); // call point draw function for vector element
+		}
+
+		for (int i = 0; i < size(beziers); i++) {
+			beziers.at(i).step(window, 
+				&points.at(beziers.at(i).bezierControlPoints.at(0)), 
+				&points.at(beziers.at(i).bezierControlPoints.at(1)), 
+				&points.at(beziers.at(i).bezierControlPoints.at(2)));
 		}
 	}
 
