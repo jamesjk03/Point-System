@@ -103,6 +103,7 @@ public:
 	vector2 position;
 	sf::CircleShape drawableObject;
 	float radius;
+	bool hidden = false;
 
 	// parameters given
 	point(vector2 p, float r) {
@@ -127,7 +128,7 @@ public:
 	// draw to window (passed by reference)
 	void draw(sf::RenderWindow* window) {
 		updateDrawableObjectPosition(); // update drawableObject's position
-		window->draw(drawableObject); // draw to passed in window
+		if(!hidden) window->draw(drawableObject); // draw to passed in window
 	}
 
 	friend ostream& operator<<(ostream& os, const point& p2); // for outputting vector
@@ -202,6 +203,8 @@ public:
 	bool leftMouseDownLastFrame = false; // stores state of mouse button in previous frame
 	bool pickup = false; // stores if point is currently picked up
 	int currentDragIndex; // tracks which point is picked up, by index
+	bool hKeyDownPreviousFrame = false;
+	bool bKeyDownPreviousFrame = false;
 
 	// to be called once per frame
 	void step(sf::RenderWindow* window) {
@@ -211,9 +214,41 @@ public:
 		bool leftMouseButtonDown = sf::Mouse::isButtonPressed(sf::Mouse::Left); // get lmb input
 		bool leftShiftDown = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift); // get left shift input
 		bool bKeyDown = sf::Keyboard::isKeyPressed(sf::Keyboard::B);
-		bool bKeyDownPreviousFrame = false;
+
+		bool hKeyDown = sf::Keyboard::isKeyPressed(sf::Keyboard::H);
 
 		// click actions
+
+		if (hKeyDown && !hKeyDownPreviousFrame) {
+			vector<point> validPoints; // stores points within click radius
+			vector<int> originalIndexes; // stores points index, respective to validPoints
+			bool validSeen = false; // stores whether there are any points in click radius
+
+			// loops through all points
+			for (int i = 0; i < size(points); i++) {
+				// checks if point within mouse click radius
+				if (floatDistance(points.at(i).position, mousePosition) <= clickRadius) {
+					validPoints.push_back(points.at(i)); // adds point to validPoints
+					originalIndexes.push_back(i); // adds index from points to originalIndexes
+					validSeen = true; // point within click radius seen
+				}
+			}
+
+			// checks if there is at least one valid option
+			if (validSeen) {
+				float closestDistance = clickRadius + 1; // sets closest distance to be larger than click radius, means any points in validPoints will override it
+
+				// loop through valid points
+				for (int i = 0; i < size(validPoints); i++) {
+					// checks if distance between current point and mouse is smaller than smallest distance found so far
+					if (floatDistance(validPoints.at(i).position, mousePosition) < closestDistance) {
+						closestDistance = floatDistance(validPoints.at(i).position, mousePosition); // sets closestDistance to new closest distance
+						currentDragIndex = originalIndexes.at(i); // sets currentDragIndex to original index of point
+					}
+				}
+				points.at(currentDragIndex).hidden = !points.at(currentDragIndex).hidden;
+			}
+		}
 
 		if (bKeyDown && !bKeyDownPreviousFrame) {
 			beziers.push_back(bezier(size(points)-1, size(points)-2, size(points)-3));
@@ -272,6 +307,7 @@ public:
 
 		leftMouseDownLastFrame = leftMouseButtonDown; // stores state of current frame in last frame before ticking over
 		bKeyDownPreviousFrame = bKeyDown;
+		hKeyDownPreviousFrame = hKeyDown;
 
 		// draw window
 		drawPoints(window);
