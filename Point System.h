@@ -5,6 +5,8 @@
 
 using namespace std;
 
+int defaultRadius = 4;
+
 #pragma region vector_class
 
 // custom vector class
@@ -113,7 +115,7 @@ public:
 	// no parameters given
 	point() {
 		position = vector2(0, 0); // set (0,0)
-		drawableObject.setRadius(4); // default radius of 4
+		drawableObject.setRadius(defaultRadius); // default radius of 4
 		updateDrawableObjectPosition(); // updates sfml object position
 	}
 
@@ -139,7 +141,7 @@ public:
 
 	int clickRadius = 20;
 
-	bool mouseDownLastFrame = false; // stores state of mouse button in previous frame
+	bool leftMouseDownLastFrame = false; // stores state of mouse button in previous frame
 	bool pickup = false; // stores if point is currently picked up
 	int currentDragIndex; // tracks which point is picked up, by index
 
@@ -147,18 +149,24 @@ public:
 	void step(sf::RenderWindow* window) {
 		sf::Vector2i sfMousePosition = sf::Mouse::getPosition(*window); // get mouse position from sfml
 		vector2 mousePosition = vector2(sfMousePosition.x, sfMousePosition.y); // convert mouse position to vector2 class
-		bool leftMouseButtonDown = sf::Mouse::isButtonPressed(sf::Mouse::Left); // get lmb input
 
+		bool leftMouseButtonDown = sf::Mouse::isButtonPressed(sf::Mouse::Left); // get lmb input
+		bool leftShiftDown = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift); // get left shift input
 
 		// click actions
 
+		// left shift + lmb to create new point at mouse position
+		if (leftShiftDown && leftMouseButtonDown && !leftMouseDownLastFrame) {
+			addPoint(mousePosition, defaultRadius); // add point at mouse position
+		}
+
 		// dragging when mouse down in current and previous frame as well as pickup in progress
-		if (mouseDownLastFrame && leftMouseButtonDown && pickup) {
+		else if (leftMouseDownLastFrame && leftMouseButtonDown && pickup && !leftShiftDown) {
 			points.at(currentDragIndex).position = mousePosition; // set position of point being dragged
 		}
 
 		// pick point up when lmb is down and wasn't last frame
-		else if (leftMouseButtonDown && !mouseDownLastFrame) {
+		else if (leftMouseButtonDown && !leftMouseDownLastFrame) {
 			vector<point> validPoints; // stores points within click radius
 			vector<int> originalIndexes; // stores points index, respective to validPoints
 			bool validSeen = false; // stores whether there are any points in click radius
@@ -194,11 +202,11 @@ public:
 			}
 		}
 		// checks if neither last or current frame lmb
-		else if (!mouseDownLastFrame && !leftMouseButtonDown) {
+		else if (!leftMouseDownLastFrame && !leftMouseButtonDown) {
 			int currentDragIndex; // resets drag index (not necessary but probably a good idea
 		}
 
-		mouseDownLastFrame = leftMouseButtonDown; // stores state of current frame in last frame before ticking over
+		leftMouseDownLastFrame = leftMouseButtonDown; // stores state of current frame in last frame before ticking over
 
 		// draw window
 		drawPoints(window);
